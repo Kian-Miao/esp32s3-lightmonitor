@@ -11,6 +11,8 @@
 #include <stdint.h>
 #include "esp_err.h"
 #include "led.h"
+#include "mqtt_app.h"
+#include "myble.h"
 
 esp_err_t sensor_read(sensor_data_t *data)
 {
@@ -41,9 +43,6 @@ esp_err_t sensor_init(void)
     key_init();
     led_init();
 
-    bh1750_send_cmd(PowerOn);
-    bh1750_send_cmd(HResolutionMode);
-
     vTaskDelay(pdMS_TO_TICKS(180));
 
     return ESP_OK;
@@ -52,14 +51,16 @@ esp_err_t sensor_init(void)
 void sensor_switch(sensor_data_t *data)
 {
     int order = key_scan();  
+    mqtt_cmd_t cmd = mqtt_app_take_cmd();
+    ble_cmd_t ble_cmd = ble_take_cmd();
 
-    if(order == 0)
+    if(order == KEY_POWERDOWN||cmd == MQTT_CMD_OFF||ble_cmd == BLE_CMD_OFF)
     {
         bh1750_send_cmd(PowerDown);
         data->sensor_enable = false;
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
-    else if (order == 1)
+    else if (order == KEY_RESET||cmd == MQTT_CMD_RESET|| ble_cmd == BLE_CMD_RESET)
     {
         bh1750_send_cmd(PowerOn);
         bh1750_send_cmd(Reset);
@@ -67,14 +68,13 @@ void sensor_switch(sensor_data_t *data)
         data->sensor_enable = true;
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
-    else if (order == 2)
+    else if (order == KEY_POWERON||cmd == MQTT_CMD_ON|| ble_cmd == BLE_CMD_ON)
     {
         bh1750_send_cmd(PowerOn);
         bh1750_send_cmd(HResolutionMode);
         data->sensor_enable = true;
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
-    
     
 }
 
